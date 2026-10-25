@@ -164,7 +164,7 @@
       <div class="max-w-5xl mx-auto px-5 py-12 md:py-16 md:grid md:grid-cols-2 md:gap-12">
         <div class="mb-8 md:mb-0">
           <h2 class="font-titulo text-3xl md:text-5xl font-semibold">Peça seu orçamento</h2>
-          <p class="mt-3 text-white/75 max-w-sm">Preencha os dados. Ao enviar, abrimos o WhatsApp com sua mensagem pronta.</p>
+          <p class="mt-3 text-white/75 max-w-sm">Preencha os dados. Ao enviar, registramos sua solicitação e abrimos o WhatsApp com sua mensagem pronta.</p>
 
           <!-- SELO DE GARANTIA -->
           <div class="mt-6 flex items-start gap-3 max-w-sm rounded-2xl border border-white/20 bg-white/5 p-4">
@@ -182,13 +182,13 @@
         <form id="form" class="space-y-4" novalidate>
           <div>
             <label for="nome" class="block text-sm mb-1.5 text-white/80">Nome</label>
-            <input id="nome" name="nome" type="text" required autocomplete="name"
+            <input id="nome" name="nome" type="text" required autocomplete="name" maxlength="100"
                    class="w-full rounded-xl bg-white border border-transparent px-4 py-3 text-marrom focus:outline-none focus:border-laranja focus-visible:ring-4 focus-visible:ring-laranja/40">
           </div>
 
           <div>
             <label for="whats" class="block text-sm mb-1.5 text-white/80">WhatsApp</label>
-            <input id="whats" name="whats" type="tel" inputmode="tel" required autocomplete="tel" placeholder="(53) 99999-9999"
+            <input id="whats" name="whats" type="tel" inputmode="tel" required autocomplete="tel" maxlength="22" placeholder="(53) 99999-9999"
                    class="w-full rounded-xl bg-white border border-transparent px-4 py-3 text-marrom placeholder-cafe/60 focus:outline-none focus:border-laranja focus-visible:ring-4 focus-visible:ring-laranja/40">
           </div>
 
@@ -235,9 +235,12 @@
           </div>
 
           <p id="erro" class="hidden text-sm text-orange-200" role="alert">Preencha todos os campos para continuar.</p>
+          <p id="status-envio" class="hidden text-sm text-white/80" role="status" aria-live="polite"></p>
+          <a id="continuar-whatsapp" class="hidden block text-sm font-bold text-white underline underline-offset-4 focus-visible:ring-4 focus-visible:ring-laranja/50"
+             target="_blank" rel="noopener">Continuar pelo WhatsApp</a>
 
           <button type="submit"
-                  class="w-full bg-laranja text-white font-bold py-3.5 rounded-full hover:bg-white hover:text-terracota transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-laranja/50">
+                  class="w-full bg-laranja text-white font-bold py-3.5 rounded-full hover:bg-white hover:text-terracota transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-laranja/50 disabled:opacity-60 disabled:cursor-wait">
             Enviar pelo WhatsApp
           </button>
         </form>
@@ -283,60 +286,119 @@
     const NUMERO_WHATSAPP = "5553991041249";
 
     // >>> Cole aqui a URL do seu Google Apps Script (termina em /exec).
-    // Vazio = não salva em planilha, apenas abre o WhatsApp.
+    // O serviço deve permitir acesso sem login e responder com confirmação de gravação.
     const ENDPOINT_PLANILHA = "https://script.google.com/macros/s/AKfycbyFVu_oonDTGsNqKiUxExl3tCJBWh4lbtGjfjZ1OgdIqHufOmvxbcpSwRVS7DHbdjBk/exec";
 
     const form = document.getElementById("form");
     const erro = document.getElementById("erro");
     const campoData = document.getElementById("data");
     const campoWhats = document.getElementById("whats");
+    const campoNome = document.getElementById("nome");
+    const botao = form.querySelector('button[type="submit"]');
+    const statusEnvio = document.getElementById("status-envio");
+    const continuarWhats = document.getElementById("continuar-whatsapp");
+    let enviando = false;
+    let ultimoEnvioConfirmado = "";
 
     document.getElementById("ano").textContent = new Date().getFullYear();
 
-    // Data mínima = hoje (fuso local)
-    const hoje = new Date();
-    hoje.setMinutes(hoje.getMinutes() - hoje.getTimezoneOffset());
-    campoData.min = hoje.toISOString().split("T")[0];
+    // Recalcula também no envio, caso a página fique aberta de um dia para outro.
+    function atualizarDataMinima() {
+      const hoje = new Date();
+      hoje.setMinutes(hoje.getMinutes() - hoje.getTimezoneOffset());
+      campoData.min = hoje.toISOString().split("T")[0];
+    }
+    atualizarDataMinima();
 
-    // Máscara simples: (53) 99999-9999
+    function normalizarWhats(valor) {
+      const numeros = valor.replace(/\D/g, "");
+      return /^55\d{10,11}$/.test(numeros) ? numeros.slice(2) : numeros;
+    }
+
+    // Aceita números brasileiros com ou sem +55, sem cortar dígitos silenciosamente.
     campoWhats.addEventListener("input", () => {
-      let n = campoWhats.value.replace(/\D/g, "").slice(0, 11);
-      if (n.length > 6)      n = `(${n.slice(0,2)}) ${n.slice(2,7)}-${n.slice(7)}`;
-      else if (n.length > 2) n = `(${n.slice(0,2)}) ${n.slice(2)}`;
-      else if (n.length > 0) n = `(${n}`;
-      campoWhats.value = n;
+      const n = normalizarWhats(campoWhats.value);
+      const tamanhoPrefixo = n.length === 11 ? 5 : 4;
+      if (n.length > 11) campoWhats.value = n;
+      else if (n.length > 2 + tamanhoPrefixo) {
+        campoWhats.value = `(${n.slice(0, 2)}) ${n.slice(2, 2 + tamanhoPrefixo)}-${n.slice(2 + tamanhoPrefixo)}`;
+      } else if (n.length > 2) campoWhats.value = `(${n.slice(0, 2)}) ${n.slice(2)}`;
+      else campoWhats.value = n ? `(${n}` : "";
+      campoWhats.setCustomValidity("");
     });
 
-    // Envio para a planilha: sendBeacon é entregue pelo navegador mesmo que a aba
-    // perca o foco ou o WhatsApp abra em seguida (principal causa de falha no celular).
-    function enviarParaPlanilha(dados) {
-      if (!ENDPOINT_PLANILHA) return false;
-      const corpo = new URLSearchParams(dados);
+    form.addEventListener("input", (e) => {
+      if (typeof e.target.setCustomValidity === "function") e.target.setCustomValidity("");
+      erro.classList.add("hidden");
+      if (!enviando) {
+        statusEnvio.classList.add("hidden");
+        continuarWhats.classList.add("hidden");
+        botao.textContent = "Enviar pelo WhatsApp";
+      }
+    });
+
+    // Uma resposta legível é necessária: enfileirar uma requisição não confirma gravação.
+    async function enviarParaPlanilha(dados) {
+      if (!ENDPOINT_PLANILHA) throw new Error("URL da planilha não configurada.");
+      const controlador = new AbortController();
+      const limite = setTimeout(() => controlador.abort(), 20000);
       try {
-        if (navigator.sendBeacon && navigator.sendBeacon(ENDPOINT_PLANILHA, corpo)) return true;
-      } catch (err) { /* cai no fetch */ }
-      try {
-        fetch(ENDPOINT_PLANILHA, { method: "POST", mode: "no-cors", keepalive: true, body: corpo });
-        return true;
-      } catch (err) {
-        console.warn("Falha ao enviar para a planilha:", err);
-        return false;
+        // URLSearchParams mantém o POST simples, sem exigir preflight de JSON.
+        const resposta = await fetch(ENDPOINT_PLANILHA, {
+          method: "POST",
+          mode: "cors",
+          credentials: "omit",
+          redirect: "follow",
+          keepalive: true,
+          signal: controlador.signal,
+          body: new URLSearchParams(dados)
+        });
+        if (!resposta.ok) throw new Error(`Apps Script respondeu HTTP ${resposta.status}.`);
+
+        const texto = (await resposta.text()).trim();
+        let retorno;
+        try {
+          retorno = JSON.parse(texto);
+        } catch (err) {
+          // Compatibilidade com serviços que retornam apenas OK ou SUCCESS.
+          if (/^(ok|success)$/i.test(texto)) return;
+          throw new Error("Apps Script não retornou uma confirmação de gravação.");
+        }
+        const confirmado = retorno && retorno.ok !== false && retorno.success !== false && !retorno.error && !retorno.erro && (
+          retorno.ok === true || retorno.success === true ||
+          retorno.result === "success" || retorno.status === "success"
+        );
+        if (!confirmado) throw new Error("Apps Script não confirmou a gravação dos dados.");
+      } finally {
+        clearTimeout(limite);
       }
     }
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const botao = form.querySelector('button[type="submit"]');
-      if (botao.disabled) return; // evita envio duplicado
+      if (enviando) return;
 
-      const v = (id) => document.getElementById(id).value.trim();
-      const nome = v("nome"), whats = v("whats"), evento = v("evento"), data = v("data"),
-            conv = v("convidados"), orc = v("orcamento-valor");
+      atualizarDataMinima();
+      campoNome.value = campoNome.value.trim();
+      campoNome.setCustomValidity(campoNome.value ? "" : "Informe seu nome.");
+      campoWhats.setCustomValidity(/^[1-9]{2}(?:[2-9]\d{7}|9\d{8})$/.test(normalizarWhats(campoWhats.value))
+        ? "" : "Informe um telefone brasileiro válido com DDD.");
+      campoData.setCustomValidity(campoData.value && campoData.value < campoData.min
+        ? "Escolha hoje ou uma data futura para o evento." : "");
 
-      if (!nome || whats.replace(/\D/g, "").length < 10 || !evento || !data || !conv || !orc) {
+      // Mantém as mensagens personalizadas e verifica required, min e demais restrições.
+      if (!form.reportValidity()) {
+        erro.textContent = "Confira os campos indicados para continuar.";
         erro.classList.remove("hidden");
         return;
       }
+
+      const v = (id) => document.getElementById(id).value.trim();
+      const numerosWhats = normalizarWhats(campoWhats.value);
+      const prefixo = numerosWhats.length === 11 ? 5 : 4;
+      const whats = `(${numerosWhats.slice(0, 2)}) ${numerosWhats.slice(2, 2 + prefixo)}-${numerosWhats.slice(2 + prefixo)}`;
+      const nome = v("nome"), evento = v("evento"), data = v("data"),
+            conv = v("convidados"), orc = v("orcamento-valor");
       erro.classList.add("hidden");
 
       const [a, m, d] = data.split("-");
@@ -351,26 +413,45 @@
         `*Convidados:* ${conv}\n` +
         `*Orçamento estimado:* ${orc}`;
       const urlWhats = `https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensagem)}`;
+      continuarWhats.href = urlWhats;
+      const dados = { nome, whatsapp: whats, evento, dataEvento: dataBR, convidados: conv, orcamento: orc };
+      const assinatura = JSON.stringify(dados);
 
-      const textoOriginal = botao.textContent;
+      // Reabrir o WhatsApp com os mesmos dados não cria outro registro nesta página.
+      if (assinatura === ultimoEnvioConfirmado) {
+        window.location.assign(urlWhats);
+        return;
+      }
+
+      enviando = true;
+      form.setAttribute("aria-busy", "true");
       botao.disabled = true;
       botao.textContent = "Enviando...";
+      continuarWhats.classList.add("hidden");
+      statusEnvio.textContent = "Registrando sua solicitação...";
+      statusEnvio.classList.remove("hidden");
 
-      // 1) entrega os dados à planilha (assíncrono, sobrevive à troca de aba/app)
-      enviarParaPlanilha({
-        nome: nome,
-        whatsapp: whats,
-        evento: evento,
-        dataEvento: dataBR,
-        convidados: conv,
-        orcamento: orc
-      });
+      let confirmado = false;
+      try {
+        await enviarParaPlanilha(dados);
+        ultimoEnvioConfirmado = assinatura;
+        confirmado = true;
+        statusEnvio.textContent = "Solicitação registrada! Continue pelo WhatsApp para conversar com nossa equipe.";
+      } catch (err) {
+        console.warn("Não foi possível confirmar a gravação na planilha:", err);
+        statusEnvio.classList.add("hidden");
+        erro.textContent = "Não foi possível confirmar sua solicitação. Você pode continuar pelo WhatsApp ou tentar novamente.";
+        erro.classList.remove("hidden");
+      } finally {
+        enviando = false;
+        form.removeAttribute("aria-busy");
+        continuarWhats.classList.remove("hidden");
+        botao.disabled = false;
+        botao.textContent = confirmado ? "Abrir WhatsApp" : "Tentar novamente";
+      }
 
-      // 2) abre o WhatsApp no mesmo clique (sem bloqueio de pop-up)
-      const nova = window.open(urlWhats, "_blank");
-      if (!nova) window.location.href = urlWhats;
-
-      setTimeout(() => { botao.disabled = false; botao.textContent = textoOriginal; }, 4000);
+      // A navegação na mesma aba evita bloqueio de pop-up após a confirmação assíncrona.
+      if (confirmado) window.location.assign(urlWhats);
     });
   </script>
   <script>
