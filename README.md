@@ -26,7 +26,6 @@ Abre o WhatsApp com a mensagem formatada
 - Selo de segurança contratual, mapa com a localização exata e botão flutuante do WhatsApp
 - Gravação automática dos leads em planilha e aviso por e-mail a cada novo contato
 - Rastreamento de origem do lead por links com UTM (Instagram, WhatsApp, Google etc.)
-- Proteção básica contra robôs: campo-isca invisível, tempo mínimo de preenchimento e validação no servidor
 - Aviso de privacidade abaixo do botão de envio e página de **Política de Privacidade** (LGPD)
 - Ficha no Google Meu Negócio apontando para o site
 - Código comentado em português, pensado para aprendizado
@@ -74,33 +73,3 @@ https://casapueblolaranjal.eventslaranjal.workers.dev/?utm_source=instagram&utm_
 https://casapueblolaranjal.eventslaranjal.workers.dev/?utm_source=whatsapp&utm_medium=status
 https://casapueblolaranjal.eventslaranjal.workers.dev/?utm_source=google&utm_medium=meunegocio
 ```
-
-## Próximos passos
-
-**Concluído**
-- [x] Verificação em duas etapas no Google, GitHub e Vercel
-- [x] Autorização dos clientes para uso de nome e depoimento
-- [x] Ficha no Google Meu Negócio
-- [x] Aviso de privacidade (LGPD) e página de política
-- [x] Migração da hospedagem do Vercel para o Cloudflare
-
-**A fazer**
-- [ ] Confirmar a publicação automática no Cloudflare e trocar os links no Google e no Instagram
-- [ ] Apagar o projeto do Vercel, depois de alguns dias de estabilidade
-- [ ] Revisão da política de privacidade e do contrato por um profissional
-- [ ] Domínio próprio (o Cloudflare recomenda domínio próprio em produção para sites de negócio)
-- [ ] Olhar a planilha todos os dias nas primeiras semanas de divulgação
-- [ ] Compilar o Tailwind em vez de carregar pelo CDN
-- [ ] Vídeo curto do salão no topo da página, quando houver material
-- [ ] Medição de visitas, de forma leve e sem cookies (opcional)
-
-**Descartado por ora**
-- Coluna "Status" na planilha: o acompanhamento segue manual
-- Calendário de datas ocupadas: ainda não há datas ocupadas
-- Limite de envios repetidos por telefone: sem registro de spam até agora
-- FAQ: o atendimento humano pelo WhatsApp é preferido; rever se as mesmas dúvidas se repetirem
-- Fotos em WebP, favicon e imagem de prévia: só se surgir necessidade (lentidão ou compartilhamento do link)
-
-## Privacidade e segurança
-
-O formulário coleta nome e telefone, que são dados pessoais. Mantenha a planilha com acesso **Restrito**, não suba planilhas de clientes nem chaves para este repositório e use verificação em duas etapas nas contas ligadas ao projeto. A política completa está em `politica-privacidade.html`.
